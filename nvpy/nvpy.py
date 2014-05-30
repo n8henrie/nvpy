@@ -31,16 +31,16 @@
 # to check if we're online
 
 import codecs
-import ConfigParser
+import configparser
 import logging
 from logging.handlers import RotatingFileHandler
-from notes_db import NotesDB, SyncError, ReadError, WriteError
+from .notes_db import NotesDB, SyncError, ReadError, WriteError
 import os
 import sys
 import time
 
-from utils import KeyValueObject, SubjectMixin
-import view
+from .utils import KeyValueObject, SubjectMixin
+from . import view
 import webbrowser
 
 try:
@@ -102,7 +102,7 @@ class Config:
                     'rest_css_path': None,
                    }
 
-        cp = ConfigParser.SafeConfigParser(defaults)
+        cp = configparser.SafeConfigParser(defaults)
         # later config files overwrite earlier files
         # try a number of alternatives
         self.files_read = cp.read([os.path.join(app_dir, 'nvpy.cfg'),
@@ -246,7 +246,7 @@ class Controller:
         try:
            self.notes_db = NotesDB(self.config)
 
-        except ReadError, e:
+        except ReadError as e:
             emsg = "Please check nvpy.log.\n" + str(e)
             self.view.show_error('Sync error', emsg)
             exit(1)
@@ -400,7 +400,7 @@ class Controller:
             # create filename based on key
             fn = os.path.join(self.config.db_path, key + '.html')
             f = codecs.open(fn, mode='wb', encoding='utf-8')
-            s = u"""
+            s = """
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
@@ -440,9 +440,9 @@ class Controller:
             # explicit decode from utf8 into unicode object. If we don't
             # specify utf8, python falls back to default ascii and then we get
             # "'ascii' codec can't decode byte" error
-            s = u"""
+            s = """
 %s
-            """ % (unicode(html, 'utf8'),)
+            """ % (str(html, 'utf8'),)
 
             f.write(s)
             f.close()
@@ -680,9 +680,9 @@ class Controller:
         try:
             sync_from_server_errors = self.notes_db.sync_full()
 
-        except SyncError, e:
+        except SyncError as e:
             self.view.show_error('Sync error', e)
-        except WriteError, e:
+        except WriteError as e:
             emsg = "Please check nvpy.log.\n" + str(e)
             self.view.show_error('Sync error', emsg)
             exit(1)

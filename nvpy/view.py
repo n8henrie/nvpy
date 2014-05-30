@@ -6,12 +6,12 @@ import copy
 import logging
 import os
 import re
-import search_entry
+from . import search_entry
 import sys
-import tk
-import tkFont
-import tkMessageBox
-import utils
+from . import tk
+import tkinter.font
+import tkinter.messagebox
+from . import utils
 import webbrowser
 
 from datetime import datetime
@@ -34,7 +34,7 @@ class WidgetRedirector:
                                              self.widget._w)
 
     def close(self):
-        for name in self.dict.keys():
+        for name in list(self.dict.keys()):
             self.unregister(name)
         widget = self.widget; del self.widget
         orig = self.orig; del self.orig
@@ -44,7 +44,7 @@ class WidgetRedirector:
         tk.call("rename", orig, w)
 
     def register(self, name, function):
-        if self.dict.has_key(name):
+        if name in self.dict:
             previous = dict[name]
         else:
             previous = OriginalCommand(self, name)
@@ -53,7 +53,7 @@ class WidgetRedirector:
         return previous
 
     def unregister(self, name):
-        if self.dict.has_key(name):
+        if name in self.dict:
             function = self.dict[name]
             del self.dict[name]
             if hasattr(self.widget, name):
@@ -121,7 +121,7 @@ class HelpBindings(tk.Toplevel):
         tk.Toplevel.__init__(self, parent)
         self.title("Help | Bindings")
 
-        import bindings
+        from . import bindings
 
         msg = tk.Text(self, width=80, wrap=tk.NONE)
         msg.insert(tk.END, bindings.description)
@@ -209,7 +209,7 @@ class NotesList(tk.Frame):
         yscrollbar = tk.Scrollbar(self)
         yscrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        f = tkFont.Font(family=font_family, size=font_size)
+        f = tkinter.font.Font(family=font_family, size=font_size)
         # tkFont.families(root) returns list of available font family names
         # this determines the width of the complete interface (yes)
         # size=-self.config.font_size
@@ -235,11 +235,11 @@ class NotesList(tk.Frame):
 
         # next two lines from:
         # http://stackoverflow.com/a/9901862/532513
-        bold_font = tkFont.Font(self.text, self.text.cget("font"))
+        bold_font = tkinter.font.Font(self.text, self.text.cget("font"))
         bold_font.configure(weight="bold")
         self.text.tag_config("title", font=bold_font)
 
-        italic_font = tkFont.Font(self.text, self.text.cget("font"))
+        italic_font = tkinter.font.Font(self.text, self.text.cget("font"))
         italic_font.configure(slant="italic")
         self.text.tag_config("tags", font=italic_font, foreground="dark gray")
         self.text.tag_config("found", font=italic_font, foreground="dark gray", background="lightyellow")
@@ -282,13 +282,13 @@ class NotesList(tk.Frame):
             if pinned:
                 title += ' *'
 
-            self.text.insert(tk.END, u'{0:<{w}}'.format(title[:cellwidth-1], w=cellwidth), ("title,"))
+            self.text.insert(tk.END, '{0:<{w}}'.format(title[:cellwidth-1], w=cellwidth), ("title,"))
 
-            if tags > 0:
+            if len(tags) > 0:
                 if config.tagfound:
-                    self.text.insert(tk.END, u'{0:<{w}}'.format(','.join(tags)[:cellwidth-1], w=cellwidth), ("found",))
+                    self.text.insert(tk.END, '{0:<{w}}'.format(','.join(tags)[:cellwidth-1], w=cellwidth), ("found",))
                 else:
-                    self.text.insert(tk.END, u'{0:<{w}}'.format(','.join(tags)[:cellwidth-1], w=cellwidth), ("tags",))
+                    self.text.insert(tk.END, '{0:<{w}}'.format(','.join(tags)[:cellwidth-1], w=cellwidth), ("tags",))
 
             self.text.insert(tk.END, ' ' + utils.human_date(modifydate), ("modifydate",))
 
@@ -302,7 +302,7 @@ class NotesList(tk.Frame):
             self.text.insert(tk.END, ' ' + utils.human_date(modifydate), ("modifydate",))
 
             # tags can be None (newly created note) or [] or ['tag1', 'tag2']
-            if tags > 0:
+            if len(tags) > 0:
                 if config.tagfound:
                     self.text.insert(tk.END, ' ' + ','.join(tags), ("found",))
                 else:
@@ -605,7 +605,7 @@ class View(utils.SubjectMixin):
         self.search_entry.focus_set()
 
     def askyesno(self, title, msg):
-        return tkMessageBox.askyesno(title, msg)
+        return tkinter.messagebox.askyesno(title, msg)
     
     def cmd_notes_list_select(self, evt):
         sidx = self.notes_list.selected_idx
@@ -1024,7 +1024,7 @@ class View(utils.SubjectMixin):
             yscrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
             #f = tkFont.nametofont('TkFixedFont')
-            f = tkFont.Font(family=self.config.font_family,
+            f = tkinter.font.Font(family=self.config.font_family,
                             size=self.config.font_size)
             # tkFont.families(root) returns list of available font family names
             # this determines the width of the complete interface (yes)
@@ -1131,7 +1131,7 @@ class View(utils.SubjectMixin):
 
     def cmd_help_about(self):
 
-        tkMessageBox.showinfo(
+        tkinter.messagebox.showinfo(
             'Help | About',
             'nvPY %s is copyright 2012 by Charl P. Botha '
             '<http://charlbotha.com/>\n\n'
@@ -1500,13 +1500,13 @@ class View(utils.SubjectMixin):
 
 
     def show_error(self, title, msg):
-        tkMessageBox.showerror(title, msg)
+        tkinter.messagebox.showerror(title, msg)
 
     def show_info(self, title, msg):        
-        tkMessageBox.showinfo(title, msg,parent = self.root)
+        tkinter.messagebox.showinfo(title, msg,parent = self.root)
 
     def show_warning(self, title, msg):
-        tkMessageBox.showwarning(title, msg)
+        tkinter.messagebox.showwarning(title, msg)
 
     def unmute_note_data_changes(self):
         self.unmute('change:text')

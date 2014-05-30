@@ -6,7 +6,7 @@ import datetime
 import random
 import re
 import string
-import urllib2
+import urllib.request, urllib.parse, urllib.error
 
 # first line with non-whitespace should be the title
 note_title_re = re.compile('\s*(.*)\n?')
@@ -35,9 +35,9 @@ def get_note_title_file(note):
             return ''
 
         if isinstance(fn, str):
-            fn = unicode(fn, 'utf-8')
+            fn = str(fn, 'utf-8')
         else:
-            fn = unicode(fn)
+            fn = str(fn)
 
         if note_markdown(note):
             fn += '.mkdn'
@@ -122,34 +122,16 @@ def sanitise_tags(tags):
     else:
         return illegals_removed.split(',')
 
-
-
-def sort_by_title_pinned(a, b):
-    if note_pinned(a.note) and not note_pinned(b.note):
-        return -1
-    elif not note_pinned(a.note) and note_pinned(b.note):
-        return 1
-    else:
-        return cmp(get_note_title(a.note), get_note_title(b.note))
-
-def sort_by_modify_date_pinned(a, b):
-    if note_pinned(a.note) and not note_pinned(b.note):
-        return 1
-    elif not note_pinned(a.note) and note_pinned(b.note):
-        return -1
-    else:
-        return cmp(float(a.note.get('modifydate', 0)), float(b.note.get('modifydate', 0)))
-
 def check_internet_on():
     """Utility method to check if we have an internet connection.
     
     slightly adapted from: http://stackoverflow.com/a/3764660/532513
     """
     try:
-        urllib2.urlopen('http://74.125.228.100',timeout=1)
+        urllib.request.urlopen('http://74.125.228.100',timeout=1)
         return True
     
-    except urllib2.URLError: 
+    except urllib.error.URLError: 
         pass
     
     return False    

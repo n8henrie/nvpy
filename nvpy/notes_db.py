@@ -8,15 +8,16 @@ import glob
 import os
 import json
 import logging
-from Queue import Queue, Empty
+from queue import Queue, Empty
 import re
-import simplenote
+from . import simplenote
 simplenote.NOTE_FETCH_LENGTH=100
-from simplenote import Simplenote
+from .simplenote import Simplenote
 
 from threading import Thread
 import time
-import utils
+from . import utils
+from functools import cmp_to_key
 
 ACTION_SAVE = 0
 ACTION_SYNC_PARTIAL_TO_SERVER = 1
@@ -52,8 +53,8 @@ class NotesDB(utils.SubjectMixin):
         now = time.time()    
         # now read all .json files from disk
         fnlist = glob.glob(self.helper_key_to_fname('*'))
-        txtlist = glob.glob(unicode(self.config.txt_path + '/*.txt', 'utf-8'))
-        txtlist += glob.glob(unicode(self.config.txt_path + '/*.mkdn', 'utf-8'))
+        txtlist = glob.glob(str(self.config.txt_path + '/*.txt'))
+        txtlist += glob.glob(str(self.config.txt_path + '/*.mkdn'))
 
         # removing json files and force full full sync if using text files
         # and none exists and json files are there
@@ -69,7 +70,7 @@ class NotesDB(utils.SubjectMixin):
 
         for fn in fnlist:
             try:
-                n = json.load(open(fn, 'rb'))
+                n = json.load(open(fn, 'r', encoding='utf8'))
                 if self.config.notes_as_txt:
                     nt = utils.get_note_title_file(n)
                     tfn = os.path.join(self.config.txt_path, nt)
@@ -92,11 +93,11 @@ class NotesDB(utils.SubjectMixin):
                             n['deleted'] = 1
                             n['modifydate'] = now
 
-            except IOError, e:
+            except IOError as e:
                 logging.error('NotesDB_init: Error opening %s: %s' % (fn, str(e)))
                 raise ReadError ('Error opening note file')
 
-            except ValueError, e:
+            except ValueError as e:
                 logging.error('NotesDB_init: Error reading %s: %s' % (fn, str(e)))
                 raise ReadError ('Error reading note file')
 
@@ -117,11 +118,11 @@ class NotesDB(utils.SubjectMixin):
                     with codecs.open(tfn, mode='rb', encoding='utf-8') as f:  
                         c = f.read()
 
-                except IOError, e:
+                except IOError as e:
                     logging.error('NotesDB_init: Error opening %s: %s' % (fn, str(e)))
                     raise ReadError ('Error opening note file')
 
-                except ValueError, e:
+                except ValueError as e:
                     logging.error('NotesDB_init: Error reading %s: %s' % (fn, str(e)))
                     raise ReadError ('Error reading note file')
 
@@ -213,18 +214,16 @@ class NotesDB(utils.SubjectMixin):
             filtered_notes, match_regexp, active_notes = self.filter_notes_gstyle(search_string)
 
         if self.config.sort_mode == 0:
-            if self.config.pinned_ontop == 0:
-                # sort alphabetically on title
-                filtered_notes.sort(key=lambda o: utils.get_note_title(o.note))
-            else:
-                filtered_notes.sort(utils.sort_by_title_pinned)
+            # sort alphabetically on title
+            filtered_notes.sort(key=lambda o: utils.get_note_title(o.note))
 
         else:
-            if self.config.pinned_ontop == 0:
-                # last modified on top
-                filtered_notes.sort(key=lambda o: -float(o.note.get('modifydate', 0)))
-            else:
-                filtered_notes.sort(utils.sort_by_modify_date_pinned, reverse=True)
+            # last modified on top
+            filtered_notes.sort(key=lambda o: -float(o.note.get('modifydate', 0)))
+
+        # Pinned to top
+        if self.config.pinned_ontop != 0:
+            filtered_notes.sort(key=lambda o: 'pinned' in o.note.get('systemtags', []), reverse=True)
 
         return filtered_notes, match_regexp, active_notes
 
@@ -461,16 +460,16 @@ class NotesDB(utils.SubjectMixin):
                     with codecs.open(fn, mode='wb', encoding='utf-8') as f:  
                         c = note.get('content')
                         if isinstance(c, str):
-                            c = unicode(c, 'utf-8')
+                            c = str(c, 'utf-8')
                         else:
-                            c = unicode(c)
+                            c = str(c)
                         
                         f.write(c)
-                except IOError, e:
+                except IOError as e:
                     logging.error('NotesDB_save: Error opening %s: %s' % (fn, str(e)))
                     raise WriteError ('Error opening note file')
 
-                except ValueError, e:
+                except ValueError as e:
                     logging.error('NotesDB_save: Error writing %s: %s' % (fn, str(e)))
                     raise WriteError ('Error writing note file')
 
@@ -485,7 +484,7 @@ class NotesDB(utils.SubjectMixin):
             if os.path.isfile(fn):
                 os.unlink(fn)
         else:
-            json.dump(note, open(fn, 'wb'), indent=2)
+            json.dump(note, open(fn, 'w', encoding='utf8'), indent=2)
 
         # record that we saved this to disc.
         note['savedate'] = time.time()
@@ -549,7 +548,7 @@ class NotesDB(utils.SubjectMixin):
 
         
     def save_threaded(self):
-        for k,n in self.notes.items():
+        for k,n in list(self.notes.items()):
             savedate = float(n.get('savedate'))
             if float(n.get('modifydate')) > savedate or \
                float(n.get('syncdate')) > savedate:
@@ -599,8 +598,8 @@ class NotesDB(utils.SubjectMixin):
             lastmod = 0
         
         now = time.time()
-        for k,n in self.notes.items():
-            # if note has been modified sinc the sync, we need to sync.
+        for k,n in list(self.notes.items()):
+            # if note has been modified since the sync, we need to sync.
             # only do so if note hasn't been touched for 3 seconds
             # and if this note isn't still in the queue to be processed by the
             # worker (this last one very important)
@@ -772,7 +771,7 @@ class NotesDB(utils.SubjectMixin):
                     sync_from_server_errors+=1
 
         # 3. for each local note not in server index, remove.     
-        for lk in self.notes.keys():
+        for lk in list(self.notes.keys()):
             if lk not in server_keys:
                 if self.config.notes_as_txt:
                     tfn = os.path.join(self.config.txt_path, utils.get_note_title_file(self.notes[lk]))
@@ -782,14 +781,14 @@ class NotesDB(utils.SubjectMixin):
                 local_deletes[lk] = True
                 
         # sync done, now write changes to db_path
-        for uk in local_updates.keys():
+        for uk in list(local_updates.keys()):
             try:
                 self.helper_save_note(uk, self.notes[uk])
 
-            except WriteError, e:
+            except WriteError as e:
                 raise WriteError(e)
             
-        for dk in local_deletes.keys():
+        for dk in list(local_deletes.keys()):
             fn = self.helper_key_to_fname(dk)
             if os.path.exists(fn):
                 os.unlink(fn)
@@ -845,9 +844,9 @@ class NotesDB(utils.SubjectMixin):
                 try:
                     self.helper_save_note(o.key, o.note)
 
-                except WriteError, e:
+                except WriteError as e:
                     logging.error('FATAL ERROR in access to file system')
-                    print "FATAL ERROR: Check the nvpy.log"
+                    print("FATAL ERROR: Check the nvpy.log")
                     os._exit(1) 
 
                 else:

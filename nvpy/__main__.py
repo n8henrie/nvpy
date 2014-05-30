@@ -1,3 +1,3 @@
-import nvpy
+from . import nvpy
 nvpy.main()
 

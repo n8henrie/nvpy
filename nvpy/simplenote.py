@@ -9,9 +9,10 @@
     :license: MIT, see LICENSE for more details.
 """
 
-import urllib
-import urllib2
-from urllib2 import HTTPError
+import urllib.request
+import urllib.parse
+import urllib.error
+from urllib.error import HTTPError
 import base64
 try:
     import json
@@ -32,8 +33,8 @@ class Simplenote(object):
 
     def __init__(self, username, password):
         """ object constructor """
-        self.username = urllib2.quote(username)
-        self.password = urllib2.quote(password)
+        self.username = urllib.parse.quote(username)
+        self.password = urllib.parse.quote(password)
         self.token = None
 
     def authenticate(self, user, password):
@@ -47,14 +48,18 @@ class Simplenote(object):
             Simplenote API token as string
 
         """
-        auth_params = "email=%s&password=%s" % (user, password)
-        values = base64.encodestring(auth_params)
-        request = Request(AUTH_URL, values)
+        auth_params = "email={}&password={}".format(user, password)
+        values = base64.encodestring(auth_params.encode('utf8'))
+        req = urllib.request.Request(AUTH_URL, values)
         try:
-            res = urllib2.urlopen(request).read()
-            token = urllib2.quote(res)
-        except IOError: # no connection exception
-            token = None
+            res = urllib.request.urlopen(req).read().decode('utf8')
+            token = urllib.parse.quote(res)
+        except IOError as e: # no connection exception
+            try:
+                res = urllib.request.urlopen(urllib.request.Request(AUTH_URL, values)).read().decode('utf8')
+                token = urllib.parse.quote(res) 
+            except Exception as e:
+                token = None
         return token
 
     def get_token(self):
@@ -88,20 +93,20 @@ class Simplenote(object):
         # request note
         params = '/%s?auth=%s&email=%s' % (str(noteid), self.get_token(),
                                            self.username)
-        request = Request(DATA_URL+params)
+        req = urllib.request.Request(DATA_URL+params)
         try:
-            response = urllib2.urlopen(request)
-        except HTTPError, e:
+            response = urllib.request.urlopen(req)
+        except HTTPError as e:
             return e, -1
-        except IOError, e:
+        except IOError as e:
             return e, -1
-        note = json.loads(response.read())
+        note = json.loads(response.read().decode('utf8'))
         #use UTF-8 encoding
-        if isinstance(note["content"], str):
-            note["content"] = note["content"].encode('utf-8')
+        #if isinstance(note["content"], str):
+        #    note["content"] = note["content"].encode('utf-8')
 
-        if note.has_key("tags"):
-            note["tags"] = [t.encode('utf-8') if isinstance(t,str) else t for t in note["tags"]]
+        #if "tags" in note:
+            #note["tags"] = [t.encode('utf-8') if isinstance(t,str) else t for t in note["tags"]]
 
         return note, 0
 
@@ -123,28 +128,29 @@ class Simplenote(object):
         # use UTF-8 encoding
         # cpbotha: in both cases check if it's not unicode already
         # otherwise you get "TypeError: decoding Unicode is not supported"
-        if isinstance(note["content"], str):
-            note["content"] = unicode(note["content"], 'utf-8')
+        # if isinstance(note["content"], str):
+            # note["content"] = str(note["content"], 'utf-8')
 
-        if note.has_key("tags"):
+        # if "tags" in note:
             # if a tag is a string, unicode it, otherwise pass it through
             # unchanged (it's unicode already)
             # using the ternary operator, because I like it: a if test else b
-            note["tags"] = [unicode(t, 'utf-8') if isinstance(t, str) else t for t in note["tags"]]
+            # note["tags"] = [str(t, 'utf-8') if isinstance(t, str) else t for t in note["tags"]]
 
         # determine whether to create a new note or updated an existing one
-        if note.has_key("key"):
-            url = '%s/%s?auth=%s&email=%s' % (DATA_URL, note["key"],
+        if "key" in note:
+            url = '{}/{}?auth={}&email={}'.format(DATA_URL, note["key"],
                                               self.get_token(), self.username)
         else:
-            url = '%s?auth=%s&email=%s' % (DATA_URL, self.get_token(), self.username)
-        request = Request(url, urllib.quote(json.dumps(note)))
+            url = '{}?auth={}&email={}'.format(DATA_URL, self.get_token(), self.username)
+        data = urllib.parse.quote(json.dumps(note)).encode('utf8')
+        req = urllib.request.Request(url)
         response = ""
         try:
-            response = urllib2.urlopen(request).read()
-        except IOError, e:
+            response = urllib.request.urlopen(req, data)
+        except IOError as e:
             return e, -1
-        return json.loads(response), 0
+        return json.loads(response.read().decode('utf8')), 0
 
     def add_note(self, note):
         """wrapper function to add a note
@@ -166,7 +172,7 @@ class Simplenote(object):
         """
         if type(note) == str:
             return self.update_note({"content": note})
-        elif (type(note) == dict) and note.has_key("content"):
+        elif (type(note) == dict) and "content" in note:
             return self.update_note(note)
         else:
             return "No string or valid note.", -1
@@ -201,26 +207,26 @@ class Simplenote(object):
                                                  NOTE_FETCH_LENGTH)
         # perform initial HTTP request
         try:
-            request = Request(INDX_URL+params)
-            response = json.loads(urllib2.urlopen(request).read())
+            req = urllib.request.Request(INDX_URL+params)
+            response = json.loads(urllib.request.urlopen(req).read().decode('utf8'))
             notes["data"].extend(response["data"])
-        except IOError:
+        except IOError as e:
             status = -1
 
         # get additional notes if bookmark was set in response
-        while response.has_key("mark") and len(notes["data"]) < qty:
+        while "mark" in response and len(notes["data"]) < qty:
             if (qty - len(notes["data"])) < NOTE_FETCH_LENGTH:
                 vals = (self.get_token(), self.username, response["mark"], qty - len(notes["data"]))
             else:
                 vals = (self.get_token(), self.username, response["mark"], NOTE_FETCH_LENGTH)
-            params = 'auth=%s&email=%s&mark=%s&length=%s' % vals
+            params = 'auth={}&email={}&mark={}&length={}'.format(*vals)
 
             # perform the actual HTTP request
             try:
-                request = Request(INDX_URL+params)
-                response = json.loads(urllib2.urlopen(request).read())
+                req = urllib.request.Request(INDX_URL+params)
+                response = json.loads(urllib.request.urlopen(req).read().decode('utf8'))
                 notes["data"].extend(response["data"])
-            except IOError:
+            except IOError as e:
                 status = -1
 
         # parse data fields in response
@@ -272,26 +278,25 @@ class Simplenote(object):
                                            self.username)
         request = Request(url=DATA_URL+params, method='DELETE')
         try:
-            urllib2.urlopen(request)
-        except IOError, e:
+            urllib.request.urlopen(request)
+        except IOError as e:
             return e, -1
         return {}, 0
 
 
-class Request(urllib2.Request):
-    """ monkey patched version of urllib2's Request to support HTTP DELETE
+class Request(urllib.request.Request):
+    """ monkey patched version of urllib's Request to support HTTP DELETE
         Taken from http://python-requests.org, thanks @kennethreitz
     """
 
     def __init__(self, url, data=None, headers={}, origin_req_host=None,
                 unverifiable=False, method=None):
-        urllib2.Request.__init__(self, url, data, headers, origin_req_host, unverifiable)
+        urllib.request.Request.__init__(self, url, data, headers, origin_req_host, unverifiable)
         self.method = method
 
     def get_method(self):
         if self.method:
             return self.method
 
-        return urllib2.Request.get_method(self)
-
+        return urllib.request.Request.get_method(self)
 

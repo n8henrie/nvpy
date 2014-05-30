@@ -6,11 +6,11 @@
 Translated from Tcl code by Schelte Bron, http://wiki.tcl.tk/18188"""
 
 try:
-    import Tkinter
+    import tkinter
 except ImportError:
     import tkinter as Tkinter
 
-import ttk
+import tkinter.ttk
 
 data = """
 R0lGODlhKgAaAOfnAFdZVllbWFpcWVtdWlxeW11fXF9hXmBiX2ZnZWhpZ2lraGxua25wbXJ0
@@ -56,10 +56,10 @@ RRRWENHwRQEBADs="""
 def make_style():
     # need to keep bindings for s1 and s2 around, else the get eaten by GC
     global s1, s2
-    s1 = Tkinter.PhotoImage("search1", data=data, format="gif -index 0")
-    s2 = Tkinter.PhotoImage("search2", data=data, format="gif -index 1")
+    s1 = tkinter.PhotoImage("search1", data=data, format="gif -index 0")
+    s2 = tkinter.PhotoImage("search2", data=data, format="gif -index 1")
     
-    style = ttk.Style()
+    style = tkinter.ttk.Style()
     
     style.element_create("Search.field", "image", "search1",
         ("focus", "search2"), border=[22, 7, 14], sticky="ew")
