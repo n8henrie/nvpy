@@ -40,11 +40,16 @@ and it hasn't disappointed me (yet).
 
 ## Installation
 
-nvPY works best on Python 2.7.x. It does not work on Python 3.x yet.
+This fork is an attempt at a Python3 version of nvpy. It has room for improvement.
 
 To install the latest development version from github, do::
 
-    pip install git+https://github.com/cpbotha/nvpy.git#egg=nvpy
+    pip3 install git+https://github.com/n8henrie/nvpy.git#egg=nvpy
+    
+Common pitfalls include:
+* Not having setuptools installed (e.g. `sudo pacman -S python-setuptools`)
+* Not having tkinter installed (e.g. `sudo pacman -S tk`)
+
 
 OR, to install the version currently on pypi, do::
 
